@@ -318,20 +318,19 @@ def predict_genre(req: PredictRequest) -> PredictResponse:
 
 # ─────────────────────────── static frontend ──────────────────────────────────
 
-# Serve the pre-built React app's assets directory
+# Serve the pre-built React app.
+# In production (Render) the build command runs `npm run build` so FRONTEND_DIST exists.
 if FRONTEND_DIST.exists():
-    app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
+    # Serve bundled JS/CSS assets
+    if (FRONTEND_DIST / "assets").exists():
+        app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
 
-    # Serve other static files at root level (favicon, icons, etc.)
-    @app.get("/favicon.svg")
-    def favicon():
-        return FileResponse(str(FRONTEND_DIST / "favicon.svg"))
-
-    @app.get("/icons.svg")
-    def icons():
-        return FileResponse(str(FRONTEND_DIST / "icons.svg"))
-
-    # Catch-all: serve index.html for all non-API routes (React Router SPA)
+    # Catch-all: serve real static files from dist root (favicon, icons, images, etc.)
+    # Fall back to index.html for all React Router paths.
     @app.get("/{full_path:path}")
     def serve_spa(full_path: str):
+        file_path = FRONTEND_DIST / full_path
+        if file_path.is_file():
+            return FileResponse(str(file_path))
         return FileResponse(str(FRONTEND_DIST / "index.html"))
+

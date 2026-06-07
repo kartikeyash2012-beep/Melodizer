@@ -1,4 +1,6 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// In dev:  VITE_API_URL=http://localhost:8000  (set in .env)
+// In prod: VITE_API_URL=''  (set in .env.production) → relative calls to same origin
+const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 export async function getHealth() {
   const res = await fetch(`${API_BASE}/api/health`);

@@ -1,62 +1,35 @@
-# ─── Music Recommendation System — Render.com Deployment ───────────────────────
+# ─── Melodizer — Render.com Deployment ────────────────────────────────────────
 #
-# Deploy two services:
-#   1. music-rec-api  — Python FastAPI backend
-#   2. music-rec-ui   — React static frontend
+# Single Python web service:
+#   - FastAPI serves the REST API at /api/*
+#   - FastAPI also serves the pre-built React frontend at /*
 #
-# Usage:
+# Deploy steps:
 #   1. Push this repo to GitHub
-#   2. Connect the repo in Render dashboard
-#   3. Render reads this file and creates both services automatically
+#   2. Go to https://dashboard.render.com → New → Blueprint
+#   3. Connect this repo — Render reads render.yaml automatically
 #
 # ──────────────────────────────────────────────────────────────────────────────
 
 services:
-
-  # ── Backend: FastAPI Python API ──────────────────────────────────────────────
   - type: web
-    name: music-rec-api
+    name: melodizer
     runtime: python
     region: oregon
 
-    # Build: install deps then pre-build pickle files
+    # Build: install Python deps, build the React frontend, then train the KNN model
     buildCommand: |
       pip install -r backend/requirements.txt
+      npm ci --prefix frontend
+      npm run build --prefix frontend
       python build_pickle.py --data music.csv --out-dir pickles
 
-    # Start: launch FastAPI on the PORT Render assigns
+    # Start: launch FastAPI — it serves both /api/* and the React SPA
     startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
 
-    # Render free tier — keeps warm with a health check
+    # Health check so Render knows the service is ready
     healthCheckPath: /api/health
 
     envVars:
       - key: PYTHON_VERSION
         value: "3.11"
-
-    # Disk to persist the pickle files between deploys (optional but faster)
-    disk:
-      name: pickles-disk
-      mountPath: /opt/render/project/src/pickles
-      sizeGB: 2
-
-  # ── Frontend: React Static Site ──────────────────────────────────────────────
-  - type: web
-    name: music-rec-ui
-    runtime: static
-    region: oregon
-
-    buildCommand: cd frontend && npm ci && npm run build
-
-    staticPublishPath: ./frontend/dist
-
-    # Rewrite all routes to index.html (React Router)
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-
-    envVars:
-      # Replace this URL with your actual API service URL after first deploy
-      - key: VITE_API_URL
-        value: https://music-rec-api.onrender.com

@@ -2,19 +2,43 @@
 // In prod: VITE_API_URL=''  (set in .env.production) → relative calls to same origin
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
+async function handleResponse(res) {
+  const isJson = res.headers.get('content-type')?.includes('application/json');
+  
+  if (!res.ok) {
+    if (isJson) {
+      const err = await res.json();
+      throw new Error(err.detail || `Server error: ${res.status}`);
+    } else {
+      const text = await res.text();
+      // If we get a plain text "Not Found" from a CDN, it means the API is missing
+      if (res.status === 404 && text.includes('Not Found')) {
+        throw new Error("Backend API not found. If deployed as a Static Site, make sure VITE_API_URL is set in the Render Dashboard.");
+      }
+      throw new Error(`Server error (${res.status}): ${text.substring(0, 50)}`);
+    }
+  }
+  
+  if (!isJson) {
+    throw new Error("Received non-JSON response from server.");
+  }
+  
+  return res.json();
+}
+
 export async function getHealth() {
   const res = await fetch(`${API_BASE}/api/health`);
-  return res.json();
+  return handleResponse(res);
 }
 
 export async function getGenres() {
   const res = await fetch(`${API_BASE}/api/genres`);
-  return res.json();
+  return handleResponse(res);
 }
 
 export async function searchTracks(q, limit = 8) {
   const res = await fetch(`${API_BASE}/api/tracks?q=${encodeURIComponent(q)}&limit=${limit}`);
-  return res.json();
+  return handleResponse(res);
 }
 
 export async function getRecommendations(query, topN = 5) {
@@ -23,11 +47,7 @@ export async function getRecommendations(query, topN = 5) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query, top_n: topN }),
   });
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.detail || 'No track found. Try a different search.');
-  }
-  return res.json();
+  return handleResponse(res);
 }
 
 export async function predictGenre(payload) {
@@ -36,9 +56,5 @@ export async function predictGenre(payload) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.detail || 'Failed to predict genre');
-  }
-  return res.json();
+  return handleResponse(res);
 }

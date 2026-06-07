@@ -1,0 +1,62 @@
+# ─── Music Recommendation System — Render.com Deployment ───────────────────────
+#
+# Deploy two services:
+#   1. music-rec-api  — Python FastAPI backend
+#   2. music-rec-ui   — React static frontend
+#
+# Usage:
+#   1. Push this repo to GitHub
+#   2. Connect the repo in Render dashboard
+#   3. Render reads this file and creates both services automatically
+#
+# ──────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Backend: FastAPI Python API ──────────────────────────────────────────────
+  - type: web
+    name: music-rec-api
+    runtime: python
+    region: oregon
+
+    # Build: install deps then pre-build pickle files
+    buildCommand: |
+      pip install -r backend/requirements.txt
+      python build_pickle.py --data music.csv --out-dir pickles
+
+    # Start: launch FastAPI on the PORT Render assigns
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+
+    # Render free tier — keeps warm with a health check
+    healthCheckPath: /api/health
+
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+
+    # Disk to persist the pickle files between deploys (optional but faster)
+    disk:
+      name: pickles-disk
+      mountPath: /opt/render/project/src/pickles
+      sizeGB: 2
+
+  # ── Frontend: React Static Site ──────────────────────────────────────────────
+  - type: web
+    name: music-rec-ui
+    runtime: static
+    region: oregon
+
+    buildCommand: cd frontend && npm ci && npm run build
+
+    staticPublishPath: ./frontend/dist
+
+    # Rewrite all routes to index.html (React Router)
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+    envVars:
+      # Replace this URL with your actual API service URL after first deploy
+      - key: VITE_API_URL
+        value: https://music-rec-api.onrender.com

@@ -1,6 +1,6 @@
 # 🎵 Melodizer
 
-![Melodizer App Preview](https://via.placeholder.com/1200x600?text=Melodizer+-+Music+Recommendation+System)
+
 
 **Melodizer** is a machine-learning powered music recommendation system. It uses Spotify audio features (like danceability, energy, tempo, and valence) to find tracks that are sonically similar to your favorite songs.
 
